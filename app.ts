@@ -36,13 +36,47 @@ const store : Store = {
   feeds: [],
 }
 
-function getData<AjaxResponse>(url : string): AjaxResponse {
-  ajax.open('GET', url , false);
-  ajax.send();
+class Api {
+  getReqeust<AjaxResponse>(url: string) : AjaxResponse {
+    const ajax = new XMLHttpRequest();
+    ajax.open('GET', url , false);
+    ajax.send();
 
-
-  return JSON.parse(ajax.response)
+    return JSON.parse(ajax.response)
+  }
 }
+
+function applyApiMixins(targetClass: any, baseClasses: any[]) {
+  baseClasses.forEach(baseClass => {
+    Object.getOwnPropertyNames(baseClass.prototype).forEach(name => {
+      const descriptor = Object.getOwnPropertyDescriptor(baseClass.prototype, name)
+
+      if (descriptor) {
+        Object.defineProperty(targetClass.prototype, name, descriptor)
+      }
+    })
+  })
+
+}
+
+class NewsFeedApi {
+  getData() : NewsFeed[] {
+    return this.getReqeust<NewsFeed[]>(NEWS_URL);
+  }
+}
+
+
+class NewsDetailApi {
+  getData(id: string) : NewsDetail {
+    return this.getReqeust<NewsDetail>(CONTENT_URL.replace('@id', id));
+  }
+}
+
+interface NewsFeedApi extends Api {}
+interface NewsDetailApi extends Api {}
+
+applyApiMixins(NewsFeedApi, [Api])
+applyApiMixins(NewsDetailApi, [Api])
 
 function updateView(html : string): void{
   if (container) {
@@ -76,8 +110,9 @@ function makeComment(comments: NewsComment[]) : string {
 
 function newsDetail (): void {
   const id = location.hash.substr(7)
+  const api = new NewsDetailApi()
    
-  const newsContent = getData<NewsDetail>(CONTENT_URL.replace('@id', id))
+  const newsContent = api.getData(id)
   let template = `
     <div class="bg-gray-600 min-h-screen pb-8">
       <div class="bg-white text-xl">
@@ -126,8 +161,8 @@ function makeFeed(feeds : NewsFeed[]) : NewsFeed[] {
 
 
 function newsFeed() : void {
+  const api = new NewsFeedApi()
   let newsFeed : NewsFeed[] = store.feeds
-
   const newsList = [];
   let template = `
     <div class="bg-gray-600 min-h-screen">
@@ -154,10 +189,9 @@ function newsFeed() : void {
     </div>
   `
 
-  
 
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeed(getData<NewsFeed[]>(NEWS_URL))
+    newsFeed = store.feeds = makeFeed(api.getData())
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
