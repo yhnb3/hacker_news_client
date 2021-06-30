@@ -1,7 +1,7 @@
 import View from '../core/view'
 import { NewsDetailApi } from '../core/api'
 import { CONTENT_URL } from '../config';
-import { NewsComment } from '../types';
+import { NewsComment, NewsStore } from '../types';
 
 const template = `
 <div class="bg-gray-600 min-h-screen pb-8">
@@ -32,46 +32,43 @@ const template = `
 </div>
 `;  
 export default class NewsDetailView extends View{
-    constructor(containerId: string) {
-      super(containerId, template)
-    }
-    render () {
-      const id = location.hash.substr(7)
-      const api = new NewsDetailApi(CONTENT_URL.replace('@id', id))
-      const newsContent = api.getData()
-  
-      for (let i=0; i < window.store.feeds.length; i++) {
-        if (Number(id) === window.store.feeds[i].id) {
-            window.store.feeds[i].read = true
-          break
-        }
-      }
-      
-      this.setTemplateData('comments', this.makeComment(newsContent.comments))
-      this.setTemplateData('currentPage', String(window.store.currentPage))
-      this.setTemplateData('title', newsContent.title)
-      this.setTemplateData('content',newsContent.content)
-      this.updateView()
-    }
-    private makeComment(comments: NewsComment[]) : string {
-      for (let i=0; i < comments.length; i++) {
-        const comment: NewsComment = comments[i]
-        this.addHtml(`
-          <div style="padding-left: ${comment.level* 40}px;" class="mt-4">
-            <div class="text-gray-400">
-              <i class="fa fa-sort-up mr-2"></i>
-              <strong>${comment.user}</strong> ${comment.time_ago}
-            </div>
-            <p class="text-gray-700">${comment.content}</p>
-          </div>      
-        `);
-    
-        if (comment.comments.length > 0) {
-          this.addHtml(this.makeComment(comment.comments))
-        }
-      }
-      return this.getHtml()
-    }
+  private store: NewsStore
+
+  constructor(containerId: string, store: NewsStore) {
+    super(containerId, template)
+    this.store = store
   }
+
+  render = (id: string): void => {
+    const api = new NewsDetailApi(CONTENT_URL.replace('@id', id))
+    const { title, content, comments } = api.getData()
+
+    this.store.makeRead(Number(id))
+    this.setTemplateData('comments', this.makeComment(comments))
+    this.setTemplateData('currentPage', String(this.store.currentPage))
+    this.setTemplateData('title', title)
+    this.setTemplateData('content',content)
+    this.updateView()
+  }
+  private makeComment(comments: NewsComment[]) : string {
+    for (let i=0; i < comments.length; i++) {
+      const comment: NewsComment = comments[i]
+      this.addHtml(`
+        <div style="padding-left: ${comment.level* 40}px;" class="mt-4">
+          <div class="text-gray-400">
+            <i class="fa fa-sort-up mr-2"></i>
+            <strong>${comment.user}</strong> ${comment.time_ago}
+          </div>
+          <p class="text-gray-700">${comment.content}</p>
+        </div>      
+      `);
+  
+      if (comment.comments.length > 0) {
+        this.addHtml(this.makeComment(comment.comments))
+      }
+    }
+    return this.getHtml()
+  }
+}
   
   
